@@ -2,8 +2,8 @@
 This repository provisions a shared remote backend for Terraform projects on AWS, including an S3 bucket for state and optional DynamoDB table for state locking; the main branch uses S3 native locking, while the dynamoDB_locking branch provides legacy DynamoDB-based locking.
 
 **Overview**
-This project creates the foundational backend resources used by other Terraform configurations. 
-an S3 bucket for remote state, server-side encryption, versioning, and optional DynamoDB table for state locks. The preferred approach is S3 native locking, which avoids the need to provision DynamoDB and simplifies permissions and operations.
+
+This project creates the foundational backend resources used by other Terraform configurations, an S3 bucket for remote state, server-side encryption, versioning, and optional DynamoDB table for state locks. The preferred approach is S3 native locking, which avoids the need to provision DynamoDB and simplifies permissions and operations.
 
 **Branches**
 1. main: Uses S3 native locking with use_lockfile = true in the S3 backend; no DynamoDB table is required or created.
