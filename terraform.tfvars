@@ -1,3 +1,13 @@
-bucket_name = "terraform-remote-state-bucket-by-ibrahim"
+########################
+### For providers.tf ###
+########################
+region           = "us-east-1"
+project_name     = "yourprojectname"
+owner            = "ibrahim"
+environment_name = "dev"
+
+
+###################
+### For main.tf ###
+###################
 noncurrent_days = 30
-lock_table_name = "remote_state_lock_table"
