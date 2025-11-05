@@ -1,7 +1,8 @@
 # Terraform Backend Infrastructure
+
 This repository provisions a shared remote backend for Terraform projects on AWS, including an S3 bucket for state and optional DynamoDB table for state locking; the main branch uses S3 native locking, while the dynamoDB_locking branch provides legacy DynamoDB-based locking.
 
-**Overview**
+## Overview
 
 This project creates the foundational backend resources used by other Terraform configurations, an S3 bucket for remote state, server-side encryption, versioning, and optional DynamoDB table for state locks. The preferred approach is S3 native locking, which avoids the need to provision DynamoDB and simplifies permissions and operations.
 
@@ -84,10 +85,19 @@ Add one of the following to downstream Terraform projects.
 **Variables**
 Common variables typically include:
 
-* bucket_name: Name of the S3 bucket to host remote state
+* project_name: Name of the project used in bucket naming
+* environment_name: Environment identifier (e.g., dev, prod) used in bucket naming
+* owner: Owner identifier used in bucket naming
+* region: AWS region where the bucket will be created (default: us-east-1)
+* noncurrent_days: Number of days to retain noncurrent versions before deletion
 
-* noncurrent_days: Specifies the number of days after an object becomes noncurrent before it is automatically and permanently deleted from the bucket
+The S3 bucket name is automatically generated using the pattern: `${project_name}-${environment_name}-${owner}-remote-backend`
 
-* lock_table_name: DynamoDB table name for locks.
+**Security Features**
+* Server-side encryption using AES256
+* Complete public access blocking
+* Versioning enabled by default
+* Lifecycle policies for managing noncurrent versions
+* Force destroy option for clean resource deletion
 
 Refer to variables.tf for the complete list, defaults, and descriptions.
