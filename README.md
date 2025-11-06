@@ -1,4 +1,5 @@
 # Terraform Backend Infrastructure
+
 This repository provisions a shared remote backend for Terraform projects on AWS. It focuses on creating a secure S3 bucket to hold Terraform state and, on the `dynamoDB_locking` branch, optionally provisioning a DynamoDB table used for legacy state locking.
 
 ## Overview
@@ -34,35 +35,49 @@ The preferred approach is S3 native locking (no DynamoDB table), but the `dynamo
 
 1. Clone the repository and switch to the branch you want:
 
-        git checkout main
-        # or
-        git checkout dynamoDB_locking
+```bash
+git checkout main
+# or
+git checkout dynamoDB_locking
+```
 
 2. Configure variables
 
-        Create or update `terraform.tfvars` with the required variables for the branch you are deploying. See `variables.tf` for exact names and defaults.
+Create or update `terraform.tfvars` with the required variables for the branch you are deploying. See `variables.tf` for exact names and defaults.
 
-        The repository uses the following common variables (see `variables.tf` for full list and defaults):
+The repository uses the following common variables (see `variables.tf` for full list and defaults):
 
-        * `project_name` — name of the project used when constructing the S3 bucket name
-        * `environment_name` — environment identifier (e.g., `dev`, `prod`)
-        * `owner` — owner identifier used in bucket naming
-        * `region` — AWS region where the bucket will be created (default: `us-east-1`)
-        * `noncurrent_days` — days to retain noncurrent object versions before deletion
+* `project_name` — name of the project used when constructing the S3 bucket name
+* `environment_name` — environment identifier (e.g., `dev`, `prod`)
+* `owner` — owner identifier used in bucket naming
+* `region` — AWS region where the bucket will be created (default: `us-east-1`)
+* `noncurrent_days` — days to retain noncurrent object versions before deletion
 
 3. Deploy backend resources
 
-        * Initialize:
+```bash
+# Initialize:
+terraform init
 
-                terraform init
+# Review:
+terraform plan -var-file=terraform.tfvars
 
-        * Review:
+# Apply:
+terraform apply -var-file=terraform.tfvars
+```
 
-                terraform plan -var-file=terraform.tfvars
+## Output Management
 
-        * Apply:
+To save and reuse Terraform outputs, you can export them to a JSON file:
 
-                terraform apply -var-file=terraform.tfvars
+```bash
+terraform output -json > tf_outputs.json
+```
+
+This command:
+- Gets all Terraform outputs in JSON format
+- Redirects (>) the command's output into the file `tf_outputs.json`
+- Useful for scripting or passing output values to other tools/processes
 
 ## DynamoDB locking branch notes
 
@@ -72,13 +87,13 @@ The preferred approach is S3 native locking (no DynamoDB table), but the `dynamo
 
 ```hcl
 terraform {
-    backend "s3" {
-        bucket         = "org-tf-state"
-        key            = "platform/shared/backend.tfstate"
-        region         = "us-east-1"
-        encrypt        = true
-        dynamodb_table = "terraform-locks" # point to the table created in this repo/branch
-    }
+  backend "s3" {
+    bucket         = "org-tf-state"
+    key            = "platform/shared/backend.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "terraform-locks" # point to the table created in this repo/branch
+  }
 }
 ```
 
@@ -88,13 +103,13 @@ Preferred (S3 native locking, `main`):
 
 ```hcl
 terraform {
-    backend "s3" {
-        bucket       = "org-tf-state"
-        key          = "platform/shared/backend.tfstate"
-        region       = "us-east-1"
-        encrypt      = true
-        use_lockfile = true
-    }
+  backend "s3" {
+    bucket       = "org-tf-state"
+    key          = "platform/shared/backend.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 ```
 
