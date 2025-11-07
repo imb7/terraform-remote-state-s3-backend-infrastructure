@@ -2,6 +2,21 @@
 
 This repository provisions a shared remote backend for Terraform projects on AWS. It focuses on creating a secure S3 bucket to hold Terraform state and, on the `dynamoDB_locking` branch, optionally provisioning a DynamoDB table used for legacy state locking.
 
+## Table of contents
+
+- [Overview](#overview)
+- [Branches](#branches)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+  - [IAM permissions (examples)](#iam-permissions-examples)
+- [Usage](#usage)
+- [Output Management](#output-management)
+- [Backend configuration examples (S3 native locking)](#backend-configuration-examples-s3-native-locking)
+- [DynamoDB locking branch notes](#dynamodb-locking-branch-notes)
+- [Notes and best practices](#notes-and-best-practices)
+- [Migration: DynamoDB -> S3 native locking](#migration-dynamodb--s3-native-locking)
+- [Notes and best practices](#notes-and-best-practices)
+
 ## Overview
 
 This project creates foundational backend resources used by downstream Terraform configurations: an S3 bucket for remote state with server-side encryption, versioning, lifecycle rules, and an optional DynamoDB table for state locks (on the `dynamoDB_locking` branch).
@@ -79,6 +94,22 @@ This command:
 - Redirects (>) the command's output into the file `tf_outputs.json`
 - Useful for scripting or passing output values to other tools/processes
 
+## Backend configuration examples (S3 native locking)
+
+Preferred (S3 native locking, `main`):
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "<s3-bucket-name>"                # e.g. "acme-prod-tf-state"
+    key          = "platform/shared/backend.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
+
 ## DynamoDB locking branch notes
 
 * The `dynamoDB_locking` branch contains the Terraform configuration to provision a DynamoDB table for Terraform state locking. Check the branch for resources named `aws_dynamodb_table` or modules that create the lock table.
@@ -88,23 +119,54 @@ This command:
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "org-tf-state"
+    bucket         = "<s3-bucket-name>"              # e.g. "acme-prod-tf-state"
     key            = "platform/shared/backend.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "terraform-locks" # point to the table created in this repo/branch
+    dynamodb_table = "<dynamodb-table-name>"         # e.g. "terraform-locks"
   }
 }
 ```
 
-## Backend configuration examples (S3 native locking)
+## Migration: DynamoDB -> S3 native locking
 
-Preferred (S3 native locking, `main`):
+If your team currently uses a DynamoDB table for Terraform state locking and you want to migrate to S3 native locking, this section outlines a safe, low-risk approach.
+
+Why migrate
+
+- S3 native locking reduces operational overhead (no DynamoDB table to manage).
+- Simplifies IAM requirements for downstream projects.
+
+Prerequisites
+
+- Terraform CLI version that supports S3 native locking (Terraform 1.3+ recommended).
+- The remote state is already stored in the S3 bucket used by your backend.
+- Coordination with your team: ensure no in-progress Terraform operations that rely on the DynamoDB lock.
+
+Step-by-step migration
+
+1. Update the downstream project's `terraform` backend block(s): remove the `dynamodb_table` setting and add `use_lockfile = true`.
+
+   Before (DynamoDB locking):
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket       = "org-tf-state"
+    bucket         = "<s3-bucket-name>"              # e.g. "acme-prod-tf-state"
+    key            = "platform/shared/backend.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "<dynamodb-table-name>"
+  }
+}
+```
+
+   After (S3 native locking):
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "<s3-bucket-name>" 
     key          = "platform/shared/backend.tfstate"
     region       = "us-east-1"
     encrypt      = true
@@ -112,6 +174,30 @@ terraform {
   }
 }
 ```
+
+2. Reconfigure the backend for each downstream project (or workspace):
+
+```bash
+terraform init -reconfigure
+```
+
+   This updates the local backend configuration to the new backend settings. No state move is required because the state remains in the same S3 bucket/key.
+
+3. Verify there are no active locks and run a plan/apply as a smoke test.
+
+Post-migration cleanup
+
+- Keep the DynamoDB table for a short period (audit/history) but do not delete it until you're confident all teams have migrated and no locks remain.
+- When ready to remove the DynamoDB table, ensure all workspaces are idle, then delete the table using the AWS Console/CLI.
+
+IAM and permissions
+
+- After migrating, downstream projects no longer need DynamoDB permissions; you can remove `dynamodb:*` permissions from their IAM roles.
+
+Notes
+
+- Migration is mainly a configuration change — state stays in S3. The DynamoDB table only acted as a lock store.
+- Coordinate across teams and CI systems to avoid mid-migration failures.
 
 ## Notes and best practices
 
